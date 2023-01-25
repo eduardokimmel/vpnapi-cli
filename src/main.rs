@@ -7,11 +7,16 @@ use clap::Parser;
 #[derive(Parser,Default,Debug)]
 struct Arguments {
     ip: String,
-    // #[clap(short, long)]
-    // destination: Option<String>,
+    #[clap(short, long)]
+    key: Option<String>,
+    #[clap(short, long)]
+    file: Option<String>,
+    #[clap(short, long)]
+    config: Option<String>
 }
 
-fn main() {
+#[tokio::main]
+async fn main() {
     let args:Arguments = Arguments::parse();
     
     if !check_if_valid_ip(&args.ip) {
@@ -23,6 +28,13 @@ fn main() {
         println!("{}", "Not global IP".to_string());
         std::process::exit(0)
     }
+
+    let key = "";
+
+    let r = get_vpnapi_result(&args.ip, key).await;
+    println!("fact = {:#?}", r);
+
+
 }
 
 fn check_if_valid_ip(s: &String) -> bool {
@@ -36,6 +48,23 @@ fn check_if_valid_ip(s: &String) -> bool {
 fn check_if_global_ip(s: &String) -> bool {
     IpAddr::from_str(&s).unwrap().is_global()
 }
+
+async fn get_vpnapi_result(ip: &String, key: &str) -> Result<String, Box<dyn std::error::Error>> {
+    let client = reqwest::Client::new();
+    let mut url: String = "https://vpnapi.io/api/".to_string();
+    url.push_str(ip);
+    url.push_str("?key=");
+    url.push_str(key);
+
+
+    let body = client.get(url).send()
+        .await?
+        .text()
+        .await?;
+
+    Ok(body)
+}
+
 
 ////////////// Tests /////////////
 #[test]
