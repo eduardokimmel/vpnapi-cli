@@ -2,13 +2,14 @@
 #![feature(ip)]
 use std::{net::{IpAddr, Ipv4Addr, Ipv6Addr, AddrParseError}, str::FromStr};
 use clap::Parser;
+// use  serde::{Deserialize, "derive"};
 
 
 #[derive(Parser,Default,Debug)]
 struct Arguments {
     ip: String,
-    #[clap(short, long)]
-    key: Option<String>,
+    #[clap(default_value = "",short, long)]
+    key: String,
     #[clap(short, long)]
     file: Option<String>,
     #[clap(short, long)]
@@ -29,10 +30,14 @@ async fn main() {
         std::process::exit(0)
     }
 
-    let key = "";
+    let key = get_api_key(&args.key);
+    if key == "" {
+        println!("{}", "No key entered".to_string());
+        std::process::exit(0)
+    }
 
-    let r = get_vpnapi_result(&args.ip, key).await;
-    println!("fact = {:#?}", r);
+    let r = get_vpnapi_result(&args.ip, &key).await;
+    println!("result = {:#?}", r);
 
 
 }
@@ -48,6 +53,11 @@ fn check_if_valid_ip(s: &String) -> bool {
 fn check_if_global_ip(s: &String) -> bool {
     IpAddr::from_str(&s).unwrap().is_global()
 }
+
+// #[derive(Deserialize, Debug)]
+// struct VpnApiResult {
+//     message: String,
+// }
 
 async fn get_vpnapi_result(ip: &String, key: &str) -> Result<String, Box<dyn std::error::Error>> {
     let client = reqwest::Client::new();
@@ -65,6 +75,9 @@ async fn get_vpnapi_result(ip: &String, key: &str) -> Result<String, Box<dyn std
     Ok(body)
 }
 
+fn get_api_key(k: &String) -> &str {
+    k
+}
 
 ////////////// Tests /////////////
 #[test]
