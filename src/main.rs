@@ -2,6 +2,7 @@
 #![feature(ip)]
 use std::{net::{IpAddr, Ipv4Addr, Ipv6Addr, AddrParseError}, str::FromStr};
 use clap::Parser;
+use serde::Deserialize;
 // use  serde::{Deserialize, "derive"};
 
 
@@ -37,7 +38,10 @@ async fn main() {
     }
 
     let r = get_vpnapi_result(&args.ip, &key).await;
-    println!("result = {:#?}", r);
+    // println!("result = {:#?}", r);
+
+    let deserialized: VpnApiResult = serde_json::from_str(&r.unwrap()).unwrap();
+    println!("result = {:#?}", deserialized);
 
 
 }
@@ -54,10 +58,15 @@ fn check_if_global_ip(s: &String) -> bool {
     IpAddr::from_str(&s).unwrap().is_global()
 }
 
-// #[derive(Deserialize, Debug)]
-// struct VpnApiResult {
-//     message: String,
-// }
+type Other = serde_json::Map<String, serde_json::Value>;
+
+#[derive(Deserialize, Debug)]
+struct VpnApiResult {
+    ip: Option<String>,
+    message: Option<String>,
+    #[serde(flatten)]
+    other: Other,
+}
 
 async fn get_vpnapi_result(ip: &String, key: &str) -> Result<String, Box<dyn std::error::Error>> {
     let client = reqwest::Client::new();
@@ -73,6 +82,7 @@ async fn get_vpnapi_result(ip: &String, key: &str) -> Result<String, Box<dyn std
         .await?;
 
     Ok(body)
+
 }
 
 fn get_api_key(k: &String) -> &str {
