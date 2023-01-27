@@ -63,10 +63,45 @@ type Other = serde_json::Map<String, serde_json::Value>;
 #[derive(Deserialize, Debug)]
 struct VpnApiResult {
     ip: Option<String>,
+    security: Option<Security>,
+    location: Option<Location>,
+    network: Option<Network>,
     message: Option<String>,
     #[serde(flatten)]
     other: Other,
 }
+
+#[derive(Deserialize, Debug)]
+struct Security {
+    vpn: bool,
+    proxy: bool,
+    tor: bool,
+    relay: bool
+}
+
+#[derive(Deserialize, Debug)]
+struct Location {
+    city: String,
+    region: String,
+    country: String,
+    continent: String,
+    region_code: String,
+    continent_code: String,
+    latitude: String,
+    longitude: String,
+    time_zone: String,
+    locale_code: String,
+    metro_code: String,
+    is_in_european_union: String
+}
+
+#[derive(Deserialize, Debug)]
+struct Network {
+    network: String,
+    autonomous_system_number: String,
+    autonomous_system_organization: String
+}
+
 
 async fn get_vpnapi_result(ip: &String, key: &str) -> Result<String, Box<dyn std::error::Error>> {
     let client = reqwest::Client::new();
