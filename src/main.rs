@@ -1,8 +1,9 @@
 #![allow(dead_code,unused_variables,unused_imports)]
 #![feature(ip)]
-use std::{net::{IpAddr, Ipv4Addr, Ipv6Addr, AddrParseError}, str::FromStr};
+use std::{net::{IpAddr, Ipv4Addr, Ipv6Addr, AddrParseError}, str::FromStr, io, fs::File};
 use clap::Parser;
 use serde::{Serialize, Deserialize};
+use std::io::prelude::*;
 
 
 #[derive(Parser,Default,Debug)]
@@ -16,10 +17,6 @@ struct Arguments {
     /// Reads a list of IPs 
     #[clap(short, long)]
     file: Option<String>,
-
-    /// Saves the API key so you don't need to enter every time
-    #[clap(short, long)]
-    config: Option<String>,
 
     /// Pretty prints the results
     #[clap(short, long)]
@@ -84,6 +81,15 @@ type Other = serde_json::Map<String, serde_json::Value>;
 async fn main() {
     let args:Arguments = Arguments::parse();
     
+    // if main arg is "config", saves the key to a file
+    if &args.ip == "config" {
+        match set_api_key() {
+            Ok(_) => println!("{}", "Saved new key"),
+            Err(_) => println!("{}", "Faile to write to file")
+        }
+        std::process::exit(0)
+    }
+
     if !check_if_valid_ip(&args.ip) {
         println!("{}", "Invalid IP".to_string());
         std::process::exit(0)
@@ -96,7 +102,7 @@ async fn main() {
 
     let key = get_api_key(&args.key);
     if key == "" {
-        println!("{}", "You need to enter a key".to_string());
+        println!("{}", "You need to enter or set a key".to_string());
         std::process::exit(0)
     }
 
@@ -104,6 +110,10 @@ async fn main() {
 
     let deserialized: VpnApiResult = serde_json::from_str(&r.unwrap()).unwrap();
 
+    match &deserialized.message {
+        Some(m) => {println!("{}", m); std::process::exit(0)},
+        _ => ()
+    }
 
     // Indent if true
     match args.pprint {
@@ -125,7 +135,6 @@ fn check_if_global_ip(s: &String) -> bool {
     IpAddr::from_str(&s).unwrap().is_global()
 }
 
-
 async fn get_vpnapi_result(ip: &String, key: &str) -> Result<String, Box<dyn std::error::Error>> {
     let client = reqwest::Client::new();
     let mut url: String = "https://vpnapi.io/api/".to_string();
@@ -143,8 +152,15 @@ async fn get_vpnapi_result(ip: &String, key: &str) -> Result<String, Box<dyn std
 
 }
 
-fn set_api_key(k: &String) {
-    println!("{}", k)
+fn set_api_key() -> std::io::Result<()> {
+    println!("Enter your VPNAPI key:");
+
+    let mut buffer = String::new();
+    io::stdin().read_line(&mut buffer)?;
+
+    let mut file = File::create("secret.txt")?;
+    file.write(buffer.trim().as_bytes())?;
+    Ok(())
 }
 
 fn get_api_key(k: &String) -> &str {
