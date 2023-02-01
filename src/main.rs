@@ -81,41 +81,56 @@ type Other = serde_json::Map<String, serde_json::Value>;
 async fn main() {
     let args:Arguments = Arguments::parse();
     
-    // if main arg is "config", saves the key to a file
+    // if main arg is "config", asks for a key and saves it to a file
     if &args.ip == "config" {
         match set_api_key() {
-            Ok(_) => println!("{}", "Saved new key"),
-            Err(_) => println!("{}", "Faile to write to file")
+            Ok(_) => println!("Saved new key"),
+            Err(_) => println!("Faile to write to file")
         }
         std::process::exit(0)
     }
 
+    // Check if makes sense to query for the IP
     if !check_if_valid_ip(&args.ip) {
-        println!("{}", "Invalid IP".to_string());
+        println!("Invalid IP");
         std::process::exit(0)
     }
 
     if !check_if_global_ip(&args.ip) {
-        println!("{}", "Not global IP".to_string());
+        println!("Not global IP");
         std::process::exit(0)
     }
 
+    // If -k is null or "", try to get the key from the secret file
     let key = get_api_key(&args.key);
+    match key {
+        Err(_) => {
+            println!("Error reading password file");
+            std::process::exit(0)
+        },
+        _ => ()
+    }
+    let key = key.unwrap();
+    
+    // If the key is "", asks for a key
     if key == "" {
-        println!("{}", "You need to enter or set a key".to_string());
+        println!("You need to enter or set a key");
         std::process::exit(0)
     }
 
+    // Makes the request
     let r = get_vpnapi_result(&args.ip, &key).await;
 
+    // Turns it into a serde_json
     let deserialized: VpnApiResult = serde_json::from_str(&r.unwrap()).unwrap();
 
+    // If any message, prints it and quit
     match &deserialized.message {
         Some(m) => {println!("{}", m); std::process::exit(0)},
         _ => ()
     }
 
-    // Indent if true
+    // Indent if --pprint == true
     match args.pprint {
         true => println!("{}", serde_json::to_string_pretty(&deserialized).unwrap()),
         false => println!("{}", serde_json::to_string(&deserialized).unwrap())
@@ -155,16 +170,24 @@ async fn get_vpnapi_result(ip: &String, key: &str) -> Result<String, Box<dyn std
 fn set_api_key() -> std::io::Result<()> {
     println!("Enter your VPNAPI key:");
 
-    let mut buffer = String::new();
-    io::stdin().read_line(&mut buffer)?;
+    let mut input = String::new();
+    io::stdin().read_line(&mut input)?;
 
     let mut file = File::create("secret.txt")?;
-    file.write(buffer.trim().as_bytes())?;
+    file.write(input.trim().as_bytes())?;
     Ok(())
 }
 
-fn get_api_key(k: &String) -> &str {
-    k
+fn get_api_key(k: &String) -> Result<String, io::Error> {
+    if k != "" {
+        return Ok(k.to_string());
+    } 
+
+    let mut file = File::open("secret.txt")?;
+    let mut data = String::new();
+    file.read_to_string(&mut data)?;
+
+    Ok(data)
 }
 
 ////////////// Tests /////////////
