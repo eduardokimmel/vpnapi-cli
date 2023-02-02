@@ -1,9 +1,10 @@
-#![allow(dead_code,unused_variables,unused_imports)]
+// #![allow(dead_code,unused_variables,unused_imports)]
 #![feature(ip)]
-use std::{net::{IpAddr, Ipv4Addr, Ipv6Addr, AddrParseError}, str::FromStr, io, fs::File};
+use std::{net::IpAddr, str::FromStr, io, fs::File, path::Path};
 use clap::Parser;
 use serde::{Serialize, Deserialize};
 use std::io::prelude::*;
+use dirs::data_dir;
 
 
 #[derive(Parser,Default,Debug)]
@@ -14,11 +15,11 @@ struct Arguments {
     #[clap(default_value = "",short, long)]
     key: String,
 
-    /// Reads a list of IPs 
-    #[clap(short, long)]
-    file: Option<String>,
+    /// Reads a list of IPs - Not implemented
+    // #[clap(short, long)]
+    // file: Option<String>,
 
-    /// Pretty prints the results
+    /// Pretty prints the result
     #[clap(short, long)]
     pprint: bool,
 }
@@ -80,7 +81,7 @@ type Other = serde_json::Map<String, serde_json::Value>;
 #[tokio::main]
 async fn main() {
     let args:Arguments = Arguments::parse();
-    
+
     // if main arg is "config", asks for a key and saves it to a file
     if &args.ip == "config" {
         match set_api_key() {
@@ -105,7 +106,7 @@ async fn main() {
     let key = get_api_key(&args.key);
     match key {
         Err(_) => {
-            println!("Error reading password file");
+            println!("Unable to read key file, try running `vpnapi-cli config` or entering `-k <your key>`");
             std::process::exit(0)
         },
         _ => ()
@@ -141,7 +142,7 @@ async fn main() {
 fn check_if_valid_ip(s: &String) -> bool {
     let ip = IpAddr::from_str(&s);
     match ip {
-        Ok(ip) => true,
+        Ok(_) => true,
         _ => false
     }
 }
@@ -170,10 +171,13 @@ async fn get_vpnapi_result(ip: &String, key: &str) -> Result<String, Box<dyn std
 fn set_api_key() -> std::io::Result<()> {
     println!("Enter your VPNAPI key:");
 
+    let data_dir = data_dir().expect("Not found").display().to_string();
+    let key_file = Path::new(&data_dir).join("vpnapi");
+
     let mut input = String::new();
     io::stdin().read_line(&mut input)?;
 
-    let mut file = File::create("secret.txt")?;
+    let mut file = File::create(key_file)?;
     file.write(input.trim().as_bytes())?;
     Ok(())
 }
@@ -183,7 +187,10 @@ fn get_api_key(k: &String) -> Result<String, io::Error> {
         return Ok(k.to_string());
     } 
 
-    let mut file = File::open("secret.txt")?;
+    let data_dir = dirs::data_dir().expect("Not found").display().to_string();
+    let key_file = Path::new(&data_dir).join("vpnapi");
+
+    let mut file = File::open(key_file)?;
     let mut data = String::new();
     file.read_to_string(&mut data)?;
 
